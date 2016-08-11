@@ -33,6 +33,8 @@
 std::string HexStr(unsigned char* itbegin, unsigned char* itend, bool fSpaces = false);
 std::vector<unsigned char> ParseHex(const char* psz);
 std::vector<unsigned char> ParseHex(const std::string& str);
+
+    // flip byte order, required to reverse a given LE hash in hex to BE
 std::string ReversePairs(std::string const& src);
 
 #endif //BP_WALLET_CLIENT_UTILS_H

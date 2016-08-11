@@ -32,3 +32,16 @@ libbitpaywalletclient_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined $(RELDFLAGS)
 libbitpaywalletclient_la_LIBADD = $(LIBUNIVALUE) $(LIBBTC) $(LIBCURL)
 libbitpaywalletclient_la_CPPFLAGS = $(AM_CPPFLAGS) $(UNIVALUE_CFLAGS) -I$(srcdir)/libbtc/include -I$(srcdir)/../include
 libbitpaywalletclient_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+
+instdir=$(prefix)/bin
+inst_PROGRAMS = bitpaywalletclient
+bitpaywalletclient_LDADD = $(LIBUNIVALUE) $(LIBBTC) $(LIBCURL) libbitpaywalletclient.la
+bitpaywalletclient_SOURCES = \
+    clitool.cpp
+bitpaywalletclient_CFLAGS = $(libbtc_la_CFLAGS)
+bitpaywalletclient_CPPFLAGS = $(AM_CPPFLAGS) $(UNIVALUE_CFLAGS) -I$(srcdir)/libbtc/include -I$(srcdir)/../include
+bitpaywalletclient_LDFLAGS = -static
+
+clean-local:
+	-$(MAKE) -C libbtc clean
+	-$(MAKE) -C univalue clean
