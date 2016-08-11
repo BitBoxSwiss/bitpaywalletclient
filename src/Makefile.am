@@ -29,13 +29,12 @@ LIBBITPAYWALLETCLIENT_H = utils.h bitpaywalletclient.h
 libbitpaywalletclient_a_SOURCES = $(LIBBITPAYWALLETCLIENT_H) utils.cpp bitpaywalletclient.cpp
 
 libbitpaywalletclient_a_LDFLAGS = $(AM_LDFLAGS) -no-undefined $(RELDFLAGS)
-libbitpaywalletclient_a_LIBADD = $(LIBUNIVALUE) $(LIBBTC) $(LIBCURL)
 libbitpaywalletclient_a_CPPFLAGS = $(AM_CPPFLAGS) $(UNIVALUE_CFLAGS) -I$(srcdir)/libbtc/include -I$(srcdir)/../include
 libbitpaywalletclient_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 
 instdir=$(prefix)/bin
 inst_PROGRAMS = bitpaywalletclient
-bitpaywalletclient_LDADD = $(LIBUNIVALUE) $(LIBBTC) $(LIBCURL) libbitpaywalletclient.la
+bitpaywalletclient_LDADD = $(LIBUNIVALUE) $(LIBBTC) $(LIBCURL) libbitpaywalletclient.a
 bitpaywalletclient_SOURCES = \
     clitool.cpp
 bitpaywalletclient_CFLAGS = $(libbtc_la_CFLAGS)
