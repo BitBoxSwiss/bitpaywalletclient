@@ -1,7 +1,9 @@
+sudo: false
+
 git:
   submodules: false
 
-language: c
+language: cpp
 
 os:
     - osx
@@ -12,13 +14,21 @@ compiler:
     - gcc
     - x86_64-w64-mingw32-gcc
 
+install:
+- if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
+
 addons:
   apt:
+    sources:
+        - ubuntu-toolchain-r-test
     packages:
         - valgrind
         - binutils-mingw-w64
         - gcc-mingw-w64
         - wine
+        - gcc-4.8
+        - g++-4.8
+        - clang
 
 before_install:
   - pip install --user cpp-coveralls
