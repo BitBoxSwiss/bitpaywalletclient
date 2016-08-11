@@ -25,7 +25,7 @@ lib_LTLIBRARIES = $(LIBBITPAYWALLETCLIENT)
 
 .PHONY: FORCE check-symbols check-security
 
-LIBBITPAYWALLETCLIENT_H = bitpaywalletclient.h utils.h
+LIBBITPAYWALLETCLIENT_H = utils.h bitpaywalletclient.h
 libbitpaywalletclient_la_SOURCES = $(LIBBITPAYWALLETCLIENT_H) utils.cpp bitpaywalletclient.cpp
 
 libbitpaywalletclient_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined $(RELDFLAGS)
