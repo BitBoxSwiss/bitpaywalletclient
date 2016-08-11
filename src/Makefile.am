@@ -25,10 +25,10 @@ lib_LTLIBRARIES = $(LIBBITPAYWALLETCLIENT)
 
 .PHONY: FORCE check-symbols check-security
 
-LIBBITPAYWALLETCLIENT_H = bitpaywalletclient.h
-libbitpaywalletclient_la_SOURCES = $(LIBBITPAYWALLETCLIENT_H) bitpaywalletclient.cpp
+LIBBITPAYWALLETCLIENT_H = bitpaywalletclient.h utils.h
+libbitpaywalletclient_la_SOURCES = $(LIBBITPAYWALLETCLIENT_H) utils.cpp bitpaywalletclient.cpp
 
 libbitpaywalletclient_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined $(RELDFLAGS)
-libbitpaywalletclient_la_LIBADD = $(LIBBTC) $(LIBCURL)
+libbitpaywalletclient_la_LIBADD = $(LIBUNIVALUE) $(LIBBTC) $(LIBCURL)
 libbitpaywalletclient_la_CPPFLAGS = $(AM_CPPFLAGS) $(UNIVALUE_CFLAGS) -I$(srcdir)/libbtc/include -I$(srcdir)/../include
 libbitpaywalletclient_la_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)

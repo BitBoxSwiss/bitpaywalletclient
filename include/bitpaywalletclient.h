@@ -36,10 +36,10 @@
 #include <cstring>
 #include <mutex>
 #ifdef WIN32
-#include <windows.h>
-#include "mingw/mingw.mutex.h"
 #include "mingw/mingw.condition_variable.h"
+#include "mingw/mingw.mutex.h"
 #include "mingw/mingw.thread.h"
+#include <windows.h>
 #endif
 #include <stdexcept>
 #include <stdint.h>
@@ -50,7 +50,7 @@
 
 #include <btc/ecc_key.h>
 
-//!tiny class for a bitpay wallet service wallet invitation
+//! tiny class for a bitpay wallet service wallet invitation
 class BitpayWalletInvitation
 {
 public:
@@ -59,127 +59,135 @@ public:
     std::string network;
 };
 
-
 class BitPayWalletClient
 {
 public:
     BitPayWalletClient(std::string dataDirIn, bool testnetIn = false);
     ~BitPayWalletClient();
 
-    //!set the base URL (for the BWS)
+    //! set the base URL (for the BWS)
     void setBaseURL(const std::string& newBaseURL);
 
-    //!set the filename-base to store local data
+    //! set the filename-base to store local data
     void setFilenameBase(const std::string& filenameBaseIn);
 
-    //!get the filename-base to store local data
+    //! get the filename-base to store local data
     const std::string& getFilenameBase();
 
-    //!parse a wallet invitation code
-    bool ParseWalletInvitation(const std::string& walletInvitation, BitpayWalletInvitation& invitationOut);
+    //! parse a wallet invitation code
+    bool ParseWalletInvitation(const std::string& walletInvitation,
+        BitpayWalletInvitation& invitationOut);
 
-    //!exports the extended request key (base58check), returns true in operation was successfull
+    //! exports the extended request key (base58check), returns true in operation
+    //! was successfull
     bool GetRequestPubKey(std::string& pubKeyOut);
 
-    //!get the copyer id as string
+    //! get the copyer id as string
     std::string GetCopayerId();
 
-    //!generates the copayer hash (name, xpub, request key)
+    //! generates the copayer hash (name, xpub, request key)
     bool GetCopayerHash(const std::string& name, std::string& hashOut);
 
-    //!signs a given string with a given key
-    bool GetCopayerSignature(const std::string& stringToHash, const uint8_t* privKey, std::string& sigHexOut);
+    //! signs a given string with a given key
+    bool GetCopayerSignature(const std::string& stringToHash,
+        const uint8_t* privKey,
+        std::string& sigHexOut);
 
-    //!Create a wallet
+    //! Create a wallet
     bool CreateWallet(const std::string& walletName);
 
-    //!Get a new address and writes it to &newAddress
+    //! Get a new address and writes it to &newAddress
     bool GetNewAddress(std::string& newAddress, std::string& keypath);
 
-    //!Return the last (disk) cached known address for receiving coins
+    //! Return the last (disk) cached known address for receiving coins
     bool GetLastKnownAddress(std::string& address, std::string& keypath);
 
     bool CreatePaymentProposal(const std::string& address, uint64_t amount, uint64_t feeperkb, UniValue& paymentProposalOut, std::string& errorOut);
 
-    bool PublishTxProposal(const UniValue& paymentProposal, std::string& errorOut);
+    bool PublishTxProposal(const UniValue& paymentProposal,
+        std::string& errorOut);
 
-    //!joins a Wopay wallet
-    bool JoinWallet(const std::string& name, const BitpayWalletInvitation invitation, std::string& response);
+    //! joins a Wopay wallet
+    bool JoinWallet(const std::string& name,
+        const BitpayWalletInvitation invitation,
+        std::string& response);
 
-    //!get the current mainnet fee levels
+    //! get the current mainnet fee levels
     bool GetFeeLevels();
 
-    //!get the feeperkb rate for the given prio (0 = priority, 1 = normal, 2 = economy)
+    //! get the feeperkb rate for the given prio (0 = priority, 1 = normal, 2 =
+    //! economy)
     int GetFeeForPriority(int prio = 0);
 
-    //!load available wallets over wallet server
+    //! load available wallets over wallet server
     bool GetWallets(std::string& response);
 
-    //!load transaction history
+    //! load transaction history
     bool GetTransactionHistory(std::string& response);
 
-    //!parse a transaction proposal, export inputs keypath/hashes ready for signing
-    void ParseTxProposal(const UniValue& txProposal, UniValue& changeAddressData, std::string& serTx, std::vector<std::pair<std::string, std::vector<unsigned char> > >& vInputTxHashes, bool noScriptPubKey = false);
+    //! parse a transaction proposal, export inputs keypath/hashes ready for
+    //! signing
+    void ParseTxProposal(
+        const UniValue& txProposal,
+        UniValue& changeAddressData,
+        std::string& serTx,
+        std::vector<std::pair<std::string, std::vector<unsigned char> > >& vInputTxHashes,
+        bool noScriptPubKey = false);
 
-    //!post signatures for a transaction proposal to the wallet server
-    bool PostSignaturesForTxProposal(const UniValue& txProposal, const std::vector<std::string>& vHexSigs);
+    //! post signatures for a transaction proposal to the wallet server
+    bool PostSignaturesForTxProposal(const UniValue& txProposal,
+        const std::vector<std::string>& vHexSigs);
 
-    //!post a tx proposal reject
+    //! post a tx proposal reject
     bool RejectTxProposal(const UniValue& txProposal);
 
-    //!delete a tx proposal reject
+    //! delete a tx proposal reject
     bool DeleteTxProposal(const UniValue& txProposal);
 
-    //!tells the wallet server that we'd like to broadcast a txproposal (make sure tx proposal has enought signatures)
+    //! tells the wallet server that we'd like to broadcast a txproposal (make
+    //! sure tx proposal has enought signatures)
     bool BroadcastProposal(const UniValue& txProposal);
 
-    //!returns the root xpub key (mostly m/45')
+    //! returns the root xpub key (mostly m/45')
     std::string GetXPubKey();
 
-    //!sign a http request (generates x-signature header string)
-    std::string SignRequest(const std::string& method,
-                            const std::string& url,
-                            const std::string& args,
-                            std::string& hashOut);
+    //! sign a http request (generates x-signature header string)
+    std::string SignRequest(const std::string& method, const std::string& url, const std::string& args, std::string& hashOut);
 
-    //!send a request to the wallet server
-    bool SendRequest(const std::string& method,
-                     const std::string& url,
-                     const std::string& args,
-                     std::string& responseOut,
-                     long& httpStatusCodeOut);
+    //! send a request to the wallet server
+    bool SendRequest(const std::string& method, const std::string& url, const std::string& args, std::string& responseOut, long& httpStatusCodeOut);
 
-    //!set the master extended public key
+    //! set the master extended public key
     void setMasterPubKey(const std::string& xPubKey);
 
-    //!set the request pubkey over a xpubkey as deterministic entropy
+    //! set the request pubkey over a xpubkey as deterministic entropy
     void setRequestPubKey(const std::string& xPubKeyRequestKeyEntropy);
 
-    //!returns true in case of an available xpub/request key
+    //! returns true in case of an available xpub/request key
     bool IsSeeded();
-    
-    //!whether or not a Copay wallet was joined with the xpub/request key
+
+    //! whether or not a Copay wallet was joined with the xpub/request key
     bool walletJoined;
 
-    //!local filename (absolute)
+    //! local filename (absolute)
     const std::string localDataFilename(const std::string& dataDir);
 
-    //!store local data (xpub key, request key, etc.)
+    //! store local data (xpub key, request key, etc.)
     void SaveLocalData();
 
-    //!retrive local data
+    //! retrive local data
     void LoadLocalData();
 
-    //!remove local data (remove file)
+    //! remove local data (remove file)
     void RemoveLocalData();
 
-    //!reset the object, allow to refill the initial data
+    //! reset the object, allow to refill the initial data
     void setNull();
 
-    //flip byte order, required to reverse a given LE hash in hex to BE
+    // flip byte order, required to reverse a given LE hash in hex to BE
     static std::string ReversePairs(const std::string& strIn);
 
-    //set the dynamic/runtime CA file for https requests
+    // set the dynamic/runtime CA file for https requests
     void setCAFile(const std::string& ca_file);
 
     int CheapRandom();
@@ -196,13 +204,14 @@ private:
     std::string baseURL;              //!< base URL for the wallet server
     std::string lastKnownAddressJson; //!< base URL for the wallet server
 
-    std::vector<std::string> split(const std::string& str, std::vector<int> indexes);
+    std::vector<std::string> split(const std::string& str,
+        std::vector<int> indexes);
     std::string _copayerHash(const std::string& name, const std::string& xPubKey, const std::string& requestPubKey);
 
     UniValue feeLevelsObject;
-    //!Wrapper for libbtcs doubla sha
+    //! Wrapper for libbtcs doubla sha
     void Hash(const std::string& stringIn, uint8_t* hashout);
 
     std::string ca_file;
 };
-#endif //BP_WALLET_CLIENT_H
+#endif // BP_WALLET_CLIENT_H
