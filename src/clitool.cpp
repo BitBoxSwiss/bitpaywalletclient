@@ -26,6 +26,8 @@
 
 #include "bitpaywalletclient-config.h"
 
+#include "bitpaywalletclient.h"
+
 #include <btc/ecc.h>
 
 #include <assert.h>
@@ -54,11 +56,11 @@ static void print_version() {
 
 static void print_usage() {
     print_version();
-    printf("Usage: bitcointool (-p <privatekey>) (-t[--testnet]) (-r[--regtest]) -c <command>\n");
-    printf("Available commands: pubfrompriv, addrfrompub, genkey\n");
+    printf("Usage: bitpaywalletclient -c <command>\n");
+    printf("Available commands: createwallet\n");
     printf("\nExamples: \n");
-    printf("Generate a testnet privatekey in WIF/HEX format:\n");
-    printf("> bitcointool -c gen --testnet\n\n");
+    printf("Create a new wallet:\n");
+    printf("> bitpaywalletclient -c createwallet --testnet\n\n");
 }
 
 static bool showError(const char *er)
@@ -72,8 +74,7 @@ int main(int argc, char *argv[])
     int long_index =0;
     int opt= 0;
     char *cmd = 0;
-    char *keypath = 0;
-
+    bool testnet = false;
 
     /* get arguments */
     while ((opt = getopt_long_only(argc, argv,"p:k:m:c:trv", long_options, &long_index )) != -1) {
@@ -83,15 +84,15 @@ int main(int argc, char *argv[])
             //     if (strlen(pkey) < 50)
             //         return showError("Private key must be WIF encoded");
             //     break;
-            // case 'c' : cmd = optarg;
-            //     break;
+            case 'c' : cmd = optarg;
+                break;
             // case 'm' : keypath = optarg;
             //     break;
             // case 'k' : pubkey = optarg;
             //     break;
-            // case 't' :
-            //     chain = &btc_chain_test;
-            //     break;
+            case 't' :
+                testnet = true;
+                break;
             // case 'r' :
             //     chain = &btc_chain_regt;
             //     break;
@@ -104,15 +105,25 @@ int main(int argc, char *argv[])
         }
     }
 
+    /* start ECC context */
+    btc_ecc_start();
+
     if (!cmd)
     {
         /* exit if no command was provided */
         print_usage();
         exit(EXIT_FAILURE);
     }
-
-    /* start ECC context */
-    btc_ecc_start();
+    else if (strcmp(cmd, "createwallet") == 0)
+    {
+        BitPayWalletClient *singleWallet = new BitPayWalletClient("/tmp/", testnet);
+        singleWallet->setRequestPubKey("xprv9s21ZrQH143K2JF8RafpqtKiTbsbaxEeUaMnNHsm5o6wCW3z8ySyH4UxFVSfZ8n7ESu7fgir8imbZKLYVBxFPND1pniTZ81vKfd45EHKX73");
+        singleWallet->setMasterPubKey("xprv9s21ZrQH143K2JF8RafpqtKiTbsbaxEeUaMnNHsm5o6wCW3z8ySyH4UxFVSfZ8n7ESu7fgir8imbZKLYVBxFPND1pniTZ81vKfd45EHKX73");
+        singleWallet->CreateWallet("New Wallet");
+        std::string response;
+        singleWallet->GetWallets(response);
+        printf("%s\n", response.c_str());
+    }
 
     btc_ecc_stop();
 

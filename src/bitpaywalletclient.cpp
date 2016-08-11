@@ -4,6 +4,8 @@
 
 #include "bitpaywalletclient.h"
 
+#include "bitpaywalletclient-config.h"
+
 #if defined _MSC_VER
 #include <direct.h>
 #elif defined __GNUC__
@@ -34,7 +36,7 @@
 
 #include <climits>
 
-#ifdef DBB_ENABLE_DEBUG
+#ifdef ENABLE_DEBUG
 #define BP_LOG_MSG printf
 #else
 #define BP_LOG_MSG(f_, ...)
@@ -1121,7 +1123,7 @@ bool BitPayWalletClient::SendRequest(const std::string& method,
             curl_easy_setopt(curl, CURLOPT_CAINFO, ca_file.c_str());
 #endif
 
-#ifdef DBB_ENABLE_DEBUG
+#ifdef ENABLE_DEBUG
             curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 #endif
 
