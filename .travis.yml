@@ -1,0 +1,47 @@
+git:
+  submodules: false
+
+language: c
+
+os:
+    - osx
+    - linux
+
+compiler:
+    - clang
+    - gcc
+    - x86_64-w64-mingw32-gcc
+
+addons:
+  apt:
+    packages:
+        - valgrind
+        - binutils-mingw-w64
+        - gcc-mingw-w64
+        - wine
+
+before_install:
+  - pip install --user cpp-coveralls
+  - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew install valgrind gnu-sed --default-names; fi
+
+matrix:
+    fast_finish:
+        - true
+    exclude:
+      - os: osx
+        compiler: x86_64-w64-mingw32-gcc
+
+before_script:
+    - ./autogen.sh
+    - if [ "$CC" == i686-w64-mingw32-gcc ]; then
+          export CROSS_COMPILE=${CC%%gcc}; unset CC;
+          ./configure mingw $CONFIG_OPTS -Wno-pedantic-ms-format;
+      elif [ "$CC" == x86_64-w64-mingw32-gcc ]; then
+          export CROSS_COMPILE=${CC%%gcc}; unset CC;
+          LIBTOOL_APP_LDFLAGS='-all-static' LDFLAGS='-static' ./configure --host=x86_64-w64-mingw32 --disable-shared --enable-static;
+      else
+          ./configure CFLAGS='-fprofile-arcs -ftest-coverage';
+      fi
+
+script: 
+    - make
