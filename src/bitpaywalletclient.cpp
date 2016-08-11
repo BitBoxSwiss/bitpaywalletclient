@@ -1,10 +1,9 @@
-// Copyright (c) 2015 Jonas Schnelli
+// Copyright (c) 2016 Jonas Schnelli
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "bpwalletclient.h"
+#include "bitpaywalletclient.h"
 
-#include "config/_dbb-config.h"
 
 #if defined _MSC_VER
 #include <direct.h>
@@ -17,9 +16,6 @@
 #include <assert.h>
 #include <ctime>
 #include <string.h>
-
-#include "libdbb/crypto.h"
-#include "dbb_util.h"
 
 #include <btc/base58.h>
 #include <btc/ecc_key.h>
@@ -43,6 +39,75 @@
 #define BP_LOG_MSG(f_, ...)
 #endif
 
+
+/* helper stuff */
+static std::string HexStr(unsigned char* itbegin, unsigned char* itend, bool fSpaces = false)
+{
+    std::string rv;
+    static const char hexmap[16] = { '0', '1', '2', '3', '4', '5', '6', '7',
+                                     '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+    rv.reserve((itend-itbegin)*3);
+    for(unsigned char* it = itbegin; it < itend; ++it)
+    {
+        unsigned char val = (unsigned char)(*it);
+        if(fSpaces && it != itbegin)
+            rv.push_back(' ');
+        rv.push_back(hexmap[val>>4]);
+        rv.push_back(hexmap[val&15]);
+    }
+
+    return rv;
+}
+
+const signed char p_util_hexdigit[256] =
+{ -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+  0,1,2,3,4,5,6,7,8,9,-1,-1,-1,-1,-1,-1,
+  -1,0xa,0xb,0xc,0xd,0xe,0xf,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+  -1,0xa,0xb,0xc,0xd,0xe,0xf,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+  -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, };
+
+static  signed char HexDigit(char c)
+{
+    return p_util_hexdigit[(unsigned char)c];
+}
+
+static std::vector<unsigned char> ParseHex(const char* psz)
+{
+    // convert hex dump to vector
+    std::vector<unsigned char> vch;
+    while (true)
+    {
+        while (isspace(*psz))
+            psz++;
+        signed char c = HexDigit(*psz++);
+        if (c == (signed char)-1)
+            break;
+        unsigned char n = (c << 4);
+        c = HexDigit(*psz++);
+        if (c == (signed char)-1)
+            break;
+        n |= c;
+        vch.push_back(n);
+    }
+    return vch;
+}
+
+static std::vector<unsigned char> ParseHex(const std::string& str)
+{
+    return ParseHex(str.c_str());
+}
+
 std::string BitPayWalletClient::ReversePairs(std::string const& src)
 {
     assert(src.size() % 2 == 0);
@@ -56,7 +121,7 @@ std::string BitPayWalletClient::ReversePairs(std::string const& src)
     return result;
 }
 
-BitPayWalletClient::BitPayWalletClient(std::string dataDirIn, bool testnetIn) : dataDir(dataDirIn), testnet(testnetIn), walletJoined(false)
+BitPayWalletClient::BitPayWalletClient(std::string dataDirIn, bool testnetIn) : walletJoined(false), dataDir(dataDirIn), testnet(testnetIn)
 {
     //set the default wallet service
     ca_file = "";
@@ -91,7 +156,7 @@ std::vector<std::string> BitPayWalletClient::split(const std::string& str, std::
     std::vector<std::string> parts;
     indexes.push_back(str.size());
     int i = 0;
-    while (i < indexes.size()) {
+    while (i < (int)indexes.size()) {
         int from = i == 0 ? 0 : indexes[i - 1];
         parts.push_back(str.substr(from, indexes[i] - from));
         i++;
@@ -153,7 +218,7 @@ bool BitPayWalletClient::GetCopayerSignature(const std::string& stringToHash, co
     if (btc_pubkey_verify_sig(&pubkey, hash2, sig, outlen) == 1) {
         std::vector<unsigned char> signature;
         signature.assign(sig, sig + outlen);
-        sigHexOut = DBB::HexStr(sig, sig + outlen);
+        sigHexOut = HexStr(sig, sig + outlen);
         success = true;
     } else {
         success = false;
@@ -187,10 +252,10 @@ void BitPayWalletClient::setRequestPubKey(const std::string& xPubKeyRequestKeyEn
     std::unique_lock<std::recursive_mutex> lock(this->cs_client);
 
     btc_hdnode node;
-    bool r = btc_hdnode_deserialize(xPubKeyRequestKeyEntropy.c_str(), (testnet ? &btc_chain_test : &btc_chain_main), &node);
+    btc_hdnode_deserialize(xPubKeyRequestKeyEntropy.c_str(), (testnet ? &btc_chain_test : &btc_chain_main), &node);
 
     memcpy(requestKey.privkey, node.public_key + 1, 32);
-    std::vector<unsigned char> hash = DBB::ParseHex("26db47a48a10b9b0b697b793f5c0231aa35fe192c9d063d7b03a55e3c302850a");
+    std::vector<unsigned char> hash = ParseHex("26db47a48a10b9b0b697b793f5c0231aa35fe192c9d063d7b03a55e3c302850a");
 
     unsigned char sig[74];
     size_t outlen = 74;
@@ -221,7 +286,7 @@ bool BitPayWalletClient::GetRequestPubKey(std::string& pubKeyOut)
     btc_pubkey_init(&pubkey);
     btc_pubkey_from_key(&requestKey, &pubkey);
 
-    pubKeyOut = DBB::HexStr(pubkey.pubkey, pubkey.pubkey + 33);
+    pubKeyOut = HexStr(pubkey.pubkey, pubkey.pubkey + 33);
 
     btc_pubkey_cleanse(&pubkey);
 
@@ -236,7 +301,7 @@ std::string BitPayWalletClient::GetCopayerId()
     uint8_t hashout[32];
     //here we need a signle sha256
     btc_hash_sngl_sha256((const uint8_t*)masterPubKey.c_str(), masterPubKey.size(), hashout);
-    return DBB::HexStr(hashout, hashout + 32);
+    return HexStr(hashout, hashout + 32);
 }
 
 bool BitPayWalletClient::ParseWalletInvitation(const std::string& walletInvitation, BitpayWalletInvitation& invitationOut)
@@ -255,7 +320,7 @@ bool BitPayWalletClient::ParseWalletInvitation(const std::string& walletInvitati
     if (!btc_base58_decode(buf, &buflen, widBase58.c_str()))
         return false;
 
-    std::string widHex = DBB::HexStr(buf + 6, buf + 6 + buflen, false);
+    std::string widHex = HexStr(buf + 6, buf + 6 + buflen, false);
 
     splits = {8, 12, 16, 20};
     std::vector<std::string> walletIdParts = split(widHex, splits);
@@ -480,7 +545,7 @@ bool BitPayWalletClient::CreateWallet(const std::string& walletName)
     btc_pubkey_init(&pubkey);
     btc_pubkey_from_key(&key, &pubkey);
 
-    std::string pubKeyHex = DBB::HexStr(pubkey.pubkey, pubkey.pubkey + 33);
+    std::string pubKeyHex = HexStr(pubkey.pubkey, pubkey.pubkey + 33);
 
     //form request
     UniValue jsonArgs(UniValue::VOBJ);
@@ -658,7 +723,7 @@ void BitPayWalletClient::ParseTxProposal(const UniValue& txProposal, UniValue& c
     int64_t inTotal = 0;
     std::vector<std::pair<std::string, std::vector<unsigned char> > > inputsScriptAndPath;
 
-    for (i = 0; i < keys.size(); i++) {
+    for (i = 0; i < (int)keys.size(); i++) {
         UniValue val = values[i];
 
         if (keys[i] == "outputs")
@@ -688,7 +753,7 @@ void BitPayWalletClient::ParseTxProposal(const UniValue& txProposal, UniValue& c
 
     UniValue addressTypeUni = find_value(txProposal, "addressType");
 
-    for (i = 0; i < inputs.size(); i++) {
+    for (i = 0; i < (int)inputs.size(); i++) {
 
         UniValue aInput = inputs[i];
         std::vector<std::string> keys = aInput.getKeys();
@@ -699,7 +764,7 @@ void BitPayWalletClient::ParseTxProposal(const UniValue& txProposal, UniValue& c
         std::string path;
         int nInput = -1;
 
-        for (j = 0; j < keys.size(); j++) {
+        for (j = 0; j < (int)keys.size(); j++) {
             UniValue val = values[j];
             if (keys[j] == "txid")
                 txId = val.get_str();
@@ -716,7 +781,7 @@ void BitPayWalletClient::ParseTxProposal(const UniValue& txProposal, UniValue& c
             if (keys[j] == "publicKeys") {
                 std::vector<UniValue> pubKeyValue = val.getValues();
                 int k;
-                for (k = 0; k < pubKeyValue.size(); k++) {
+                for (k = 0; k < (int)pubKeyValue.size(); k++) {
                     UniValue aPubKeyObj = pubKeyValue[k];
                     publicKeys.push_back(aPubKeyObj.get_str());
                 }
@@ -727,7 +792,7 @@ void BitPayWalletClient::ParseTxProposal(const UniValue& txProposal, UniValue& c
         }
 
         // reverse txid and parse hex
-        std::vector<unsigned char> aHash = DBB::ParseHex(ReversePairs(txId));
+        std::vector<unsigned char> aHash = ParseHex(ReversePairs(txId));
 
         // add the input to the tx
         btc_tx_in* txin = btc_tx_in_new();
@@ -736,10 +801,10 @@ void BitPayWalletClient::ParseTxProposal(const UniValue& txProposal, UniValue& c
 
         vector* v_pubkeys = vector_new(3, free);
         int k;
-        for (k = 0; k < publicKeys.size(); k++) {
+        for (k = 0; k < (int)publicKeys.size(); k++) {
             btc_pubkey* pubkey = (btc_pubkey*)malloc(sizeof(btc_pubkey));
             btc_pubkey_init(pubkey);
-            std::vector<unsigned char> data = DBB::ParseHex(publicKeys[k]);
+            std::vector<unsigned char> data = ParseHex(publicKeys[k]);
 
             //TODO: allow uncompressed keys
             pubkey->compressed = true;
@@ -797,7 +862,7 @@ void BitPayWalletClient::ParseTxProposal(const UniValue& txProposal, UniValue& c
             inputsScriptAndPath.push_back(std::make_pair(path, msP2SHScript));
 
             // reverse txid and parse hex
-            std::vector<unsigned char> aHash = DBB::ParseHex(ReversePairs(txId));
+            std::vector<unsigned char> aHash = ParseHex(ReversePairs(txId));
 
             // add the input to the tx
             btc_tx_in* txin = btc_tx_in_new();
@@ -820,7 +885,7 @@ void BitPayWalletClient::ParseTxProposal(const UniValue& txProposal, UniValue& c
     keys = changeAddressData.getKeys();
     values = changeAddressData.getValues();
     std::string changeAdr = "";
-    for (i = 0; i < keys.size(); i++) {
+    for (i = 0; i < (int)keys.size(); i++) {
         UniValue val = values[i];
 
         if (keys[i] == "address")
@@ -848,22 +913,22 @@ void BitPayWalletClient::ParseTxProposal(const UniValue& txProposal, UniValue& c
 
     cstring* txser = cstr_new_sz(1024);
     btc_tx_serialize(txser, tx);
-    serTx = DBB::HexStr((unsigned char*)txser->str, (unsigned char*)txser->str + txser->len);
+    serTx = HexStr((unsigned char*)txser->str, (unsigned char*)txser->str + txser->len);
     BP_LOG_MSG("\n\nhextx: %s\n\n", serTx.c_str());
     cstr_free(txser, true);
     int cnt = 0;
 
-    for (cnt = 0; cnt < tx->vin->len; cnt++) {
+    for (cnt = 0; cnt < (int)tx->vin->len; cnt++) {
         std::pair<std::string, std::vector<unsigned char> > scriptAndPath = inputsScriptAndPath[cnt];
         std::vector<unsigned char> aScript = scriptAndPath.second;
-        std::string scriptHex = DBB::HexStr((unsigned char*)&aScript[0],(unsigned char*)&aScript.back()+1);
+        std::string scriptHex = HexStr((unsigned char*)&aScript[0],(unsigned char*)&aScript.back()+1);
         BP_LOG_MSG("\n\nscripthex for %d: %s\n\n", cnt, scriptHex.c_str());
 
         cstring* new_script = cstr_new_buf(&aScript[0], aScript.size());
         uint8_t hash[32];
         btc_tx_sighash(tx, new_script, cnt, 1, hash);
         cstr_free(new_script, true);
-        std::string sSigDER2 = DBB::HexStr((unsigned char*)hash, (unsigned char*)hash + 32);
+        std::string sSigDER2 = HexStr((unsigned char*)hash, (unsigned char*)hash + 32);
 
         std::vector<unsigned char> vHash(32);
         vHash.assign(hash, hash + 32);
@@ -979,11 +1044,11 @@ bool BitPayWalletClient::PostSignaturesForTxProposal(const UniValue& txProposal,
     UniValue signaturesRequest = UniValue(UniValue::VOBJ);
     UniValue sigs = UniValue(UniValue::VARR);
     for (const std::string& sSig : vHexSigs) {
-        std::vector<unsigned char> data = DBB::ParseHex(sSig);
+        std::vector<unsigned char> data = ParseHex(sSig);
         size_t sigder_len = 74;
         unsigned char sigder[sigder_len];
         btc_ecc_compact_to_der_normalized(&data[0], sigder, &sigder_len);
-        std::string sSigDER = DBB::HexStr(sigder, sigder + sigder_len);
+        std::string sSigDER = HexStr(sigder, sigder + sigder_len);
         sigs.push_back(sSigDER);
     }
     signaturesRequest.push_back(Pair("signatures", sigs));
@@ -1030,7 +1095,7 @@ std::string BitPayWalletClient::SignRequest(const std::string& method,
     uint8_t hash[32];
     btc_hash((const unsigned char*)&message.front(), message.size(), hash);
 
-    BP_LOG_MSG("signing message: %s, hash: %s\n", message.c_str(), DBB::HexStr(hash, hash + 32).c_str());
+    BP_LOG_MSG("signing message: %s, hash: %s\n", message.c_str(), HexStr(hash, hash + 32).c_str());
 
     unsigned char sig[74];
     size_t outlen = 74;
@@ -1045,8 +1110,8 @@ std::string BitPayWalletClient::SignRequest(const std::string& method,
 
     btc_pubkey_cleanse(&pubkey);
 
-    hashOut = DBB::HexStr(hash, hash + 32);
-    return DBB::HexStr(sig, sig + outlen);
+    hashOut = HexStr(hash, hash + 32);
+    return HexStr(sig, sig + outlen);
 };
 
 static size_t WriteCallback(void* contents, size_t size, size_t nmemb, void* userp)
@@ -1074,7 +1139,6 @@ bool BitPayWalletClient::SendRequest(const std::string& method,
         std::string signature = SignRequest(method, url, args, hashOut);
         if (signature.empty()) {
             BP_LOG_MSG("SignRequest failed.");
-            DBB::LogPrintDebug("SignRequest failed.", "");
             success = false;
         } else {
             chunk = curl_slist_append(chunk, ("x-identity: " + GetCopayerId()).c_str()); //requestPubKey).c_str());
@@ -1110,7 +1174,6 @@ bool BitPayWalletClient::SendRequest(const std::string& method,
             res = curl_easy_perform(curl);
             if (res != CURLE_OK) {
                 BP_LOG_MSG("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-                DBB::LogPrintDebug("curl_easy_perform() failed "+ ( curl_easy_strerror(res) ? std::string(curl_easy_strerror(res)) : ""), "");
                 success = false;
             } else {
                 curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpcodeOut);
@@ -1123,7 +1186,6 @@ bool BitPayWalletClient::SendRequest(const std::string& method,
     curl_global_cleanup();
 
     BP_LOG_MSG("response: %s", responseOut.c_str());
-    DBB::LogPrintDebug("response: "+responseOut, "");
     return success;
 };
 
