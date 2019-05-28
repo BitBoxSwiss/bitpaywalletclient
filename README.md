@@ -1,7 +1,7 @@
 bitpaywalletclient – A C++ client and library to access Bitpays wallet service (the backend of Copay)
 =====================================================================================================
 
-[![Build Status](https://travis-ci.org/digitalbitbox/bitpaywalletclient.svg?branch=master)](https://travis-ci.org/digitalbitbox/bitpaywalletclient)  [![Coverage Status](https://coveralls.io/repos/digitalbitbox/bitpaywalletclient/badge.svg?branch=master&service=github)](https://coveralls.io/github/bitpaywalletclient/bitpaywalletclient?branch=master)
+[![Build Status](https://travis-ci.org/digitalbitbox/bitpaywalletclient.svg?branch=master)](https://travis-ci.org/digitalbitbox/bitpaywalletclient)
 
 
 Dependencies
